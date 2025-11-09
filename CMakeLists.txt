@@ -4,6 +4,8 @@ project(streaming_ingest_mvp LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Define a Windows version for cpp-httplib (Windows 10 = 0x0A00)
+add_compile_definitions(_WIN32_WINNT=0x0A00)
 add_compile_definitions(_GNU_SOURCE)
 
 add_executable(ingest_service
@@ -19,7 +21,13 @@ add_executable(ingest_service
   src/writer.cpp
 )
 
-# no external find_package; using single-header httplib and system awscli in Docker
-target_include_directories(ingest_service PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include)
-#/usr/local/include/third_party
-target_link_libraries(ingest_service PRIVATE pthread)
+target_include_directories(ingest_service PRIVATE 
+  ${CMAKE_CURRENT_SOURCE_DIR}/src 
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+if(WIN32)
+  target_link_libraries(ingest_service PRIVATE pthread ws2_32 wsock32)
+else()
+  target_link_libraries(ingest_service PRIVATE pthread)
+endif()
