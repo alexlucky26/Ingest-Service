@@ -1,0 +1,55 @@
+@startuml
+' Class diagram — core classes (simplified)
+
+class IngestServer {
+  +start()
+  +stop()
+  +handleConnection(conn)
+  -http_listen()
+}
+
+class IngestQueue {
+  -max_items : size_t
+  -queue : deque<string>
+  +enqueue(line : string) : bool
+  +dequeue_bulk(n : size_t) : vector<string>
+  +size() : size_t
+}
+
+class ParserWorker {
+  +run()
+  +parse_line(line : string) : Record
+}
+
+class Batcher {
+  -current_batch : RecordBatch
+  -batch_size : size_t
+  +append(rec : Record)
+  +should_flush() : bool
+  +flush() : RecordBatch
+}
+
+class ParquetWriter {
+  +write(batch : RecordBatch) : string  'returns local file path'
+}
+
+class S3Uploader {
+  +upload(path : string) : bool
+  +retryUpload(path, attempts)
+}
+
+class MetricsExporter {
+  +inc_rows(n)
+  +observe_latency(ms)
+  +gauge_queue_length(n)
+  +start_http(port)
+}
+
+IngestServer "1" o-- "1" IngestQueue
+IngestServer "1" o-- "*" ParserWorker
+ParserWorker "1" o-- "1" Batcher
+Batcher "1" o-- "1" ParquetWriter
+ParquetWriter "1" o-- "1" S3Uploader
+IngestServer "1" o-- "1" MetricsExporter
+
+@enduml

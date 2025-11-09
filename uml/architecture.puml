@@ -1,0 +1,40 @@
+@startuml
+' Component diagram — streaming ingest
+
+package "Clients" {
+  actor Client as C
+}
+
+node "Ingest Service" {
+  [HTTP Server] as HTTP
+  [Ingest Queue] as QUEUE
+  [Parser Worker Pool] as PARSERS
+  [Batcher] as BATCHER
+  [Parquet Writer] as WRITER
+  [S3/MinIO Uploader] as UPLOADER
+  [Metrics Exporter\n(Prometheus)] as METRICS
+  [Config & Schema Store] as SCHEMA
+}
+
+database "S3 / MinIO" as S3
+database "ClickHouse (optional)" as CH
+
+C --> HTTP : POST CSV/JSON stream\n(chunked) / gRPC / Arrow Flight
+HTTP --> QUEUE : enqueue(raw_line)
+QUEUE --> PARSERS : dequeue() (batched or per-line)
+PARSERS --> BATCHER : produce RecordBatch
+BATCHER --> WRITER : flush batch -> write parquet file
+WRITER --> UPLOADER : upload(file)
+UPLOADER --> S3 : PUT object
+WRITER --> CH : optional insert bulk
+HTTP ..> METRICS : expose /metrics, push stats
+PARSERS ..> SCHEMA : get mapping/schema
+BATCHER ..> METRICS : batch latency, rows/s
+QUEUE ..> METRICS : queue_length
+
+note right of HTTP
+  Backpressure:
+  - on queue full -> 429 or throttle
+end note
+
+@enduml

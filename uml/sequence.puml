@@ -1,0 +1,32 @@
+@startuml
+' Sequence diagram — ingest flow
+
+actor Client
+participant HTTP as "HTTP Server"
+participant Queue as "Ingest Queue"
+participant Parser as "Parser Worker"
+participant Batcher
+participant Writer as "Parquet Writer"
+participant Uploader as "S3 Uploader"
+participant S3 as "S3/MinIO"
+
+Client -> HTTP : POST chunked CSV/JSON
+HTTP -> Queue : enqueue(line) [non-blocking]
+alt queue not full
+  Queue -> Parser : notify worker
+  Parser -> Parser : parse line -> normalized record
+  Parser -> Batcher : append(record)
+  alt batch full or timeout
+    Batcher -> Writer : build RecordBatch
+    Writer -> Writer : write local .parquet
+    Writer -> Uploader : upload(file)
+    Uploader -> S3 : PUT /bucket/file.parquet
+    S3 --> Uploader : 200 OK
+    Uploader --> Writer : success
+    Writer -> METRICS : emit batch metrics
+  end
+else queue full
+  HTTP -> Client : HTTP 429 (or wait/stream backpressure)
+end
+
+@enduml
