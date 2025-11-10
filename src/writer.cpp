@@ -9,7 +9,22 @@
 
 Writer::Writer(const std::string& s3_endpoint, const std::string& bucket)
   : endpoint_(s3_endpoint), bucket_(bucket) {
-    std::filesystem::create_directories("/work/data/out");
+    // Create output directory based on environment
+    std::filesystem::path output_dir;
+    
+    // for Docker/Linux
+    const char* work_dir = std::getenv("WORK_DIR");
+    if (work_dir) {
+        output_dir = std::filesystem::path(work_dir) / "data" / "out";
+    } else {
+        // For Windows/development - use ./output
+        output_dir = std::filesystem::current_path() / "output";
+    }
+    
+    std::filesystem::create_directories(output_dir);
+    output_dir_ = output_dir.string();
+    
+    std::cerr << "[writer] Output directory: " << output_dir_ << std::endl;
 }
 
 static std::string timestamp_filename() {
@@ -25,7 +40,7 @@ static std::string timestamp_filename() {
 
 std::string Writer::make_local_filename() {
     std::ostringstream ss;
-    ss << "/work/data/out/batch-" << timestamp_filename() << ".ndjson";
+    ss << output_dir_ << "/batch-" << timestamp_filename() << ".ndjson";
     return ss.str();
 }
 
@@ -46,16 +61,15 @@ bool Writer::write_batch(const std::vector<std::string>& records) {
     // using endpoint_ (e.g., http://minio:9000) and bucket_ (e.g., ingest-bucket)
     // command: aws --endpoint-url http://minio:9000 s3 cp path s3://bucket/
     std::ostringstream cmd;
-    cmd << "aws --endpoint-url " << endpoint_ << " s3 cp " << path << " s3://" << bucket_ << "/";
+    cmd << "aws --endpoint-url " << endpoint_ << " s3 cp \"" << path << "\" s3://" << bucket_ << "/";
     std::cerr << "[writer] running: " << cmd.str() << std::endl;
 
-    // Alexander To Do: Setup It later
-    // int rc = std::system(cmd.str().c_str());
-    // if (rc != 0) {
-    //     std::cerr << "[writer] upload failed rc=" << rc << std::endl;
-    //     return false;
-    // }
-    // std::cerr << "[writer] uploaded to s3://" << bucket_ << std::endl;
+    int rc = std::system(cmd.str().c_str());
+    if (rc != 0) {
+        std::cerr << "[writer] upload failed rc=" << rc << std::endl;
+        return false;
+    }
+    std::cerr << "[writer] uploaded to s3://" << bucket_ << std::endl;
 
     return true;
 }

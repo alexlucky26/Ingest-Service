@@ -12,7 +12,7 @@
 int main(int argc, char** argv) {
     // Read configuration from env
     int http_port = 8080;
-    std::string s3_endpoint = std::getenv("S3_ENDPOINT") ? std::getenv("S3_ENDPOINT") : "http://minio:9000";
+    std::string s3_endpoint = std::getenv("S3_ENDPOINT") ? std::getenv("S3_ENDPOINT") : "http://localhost:9000"; // http://minio:9000
     std::string s3_bucket = std::getenv("S3_BUCKET") ? std::getenv("S3_BUCKET") : "ingest-bucket";
     size_t batch_size = std::getenv("BATCH_SIZE") ? std::stoul(std::getenv("BATCH_SIZE")) : 1000;
     size_t queue_capacity = std::getenv("QUEUE_CAPACITY") ? std::stoul(std::getenv("QUEUE_CAPACITY")) : 100000;
@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
 
     HttpIngestServer server(http_port, queue);
     /*
-    // Логирование в консоль
+    // Logging raw lines for debugging
     server.set_raw_line_callback([](const std::string& line) {
         std::cout << "[RAW] " << line << std::endl;
     });

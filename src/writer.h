@@ -11,5 +11,6 @@ public:
 private:
     std::string endpoint_;
     std::string bucket_;
+    std::string output_dir_;
     std::string make_local_filename();
 };
